@@ -4,6 +4,7 @@ import {
   CSS3DRenderer,
   CSS3DObject,
 } from "three/examples/jsm/renderers/CSS3DRenderer.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -90,42 +91,80 @@ card.rotation.x = Math.PI;
 card.castShadow = true;
 scene.add(card);
 
-// Create a hemisphere button mesh (half-sphere)
+// Create a beach ball mesh (full sphere with colorful segments)
 const buttonRadius = 0.4;
-const buttonGeometry = new THREE.SphereGeometry(
-  buttonRadius,
-  32,
-  16,
-  0,
-  Math.PI * 2,
-  0,
-  Math.PI / 2
-);
-const buttonMaterial = new THREE.MeshPhongMaterial({
-  color: 0xff0000, // Blue color for the button
-  specular: 0x111111,
-  shininess: 80,
-});
-const buttonMesh = new THREE.Mesh(buttonGeometry, buttonMaterial);
+const buttonGeometry = new THREE.SphereGeometry(buttonRadius, 32, 16);
+
+// Create a material with beach ball-like colorful segments
+const segments = 6; // Number of color segments
+const colors = [0xff0000, 0xffff00, 0x00ff00, 0x00ffff, 0x0000ff, 0xff00ff]; // Red, yellow, green, cyan, blue, magenta
+
+// Create a group to hold all the segments
+const buttonMesh = new THREE.Group();
 buttonMesh.position.set(width + 0.5, 0, 0); // Position to the right of the card
-buttonMesh.castShadow = true;
 buttonMesh.rotation.x = 7.9;
 buttonMesh.rotation.y = 1.5;
+
+// Create each segment
+for (let i = 0; i < segments; i++) {
+  const segmentGeometry = new THREE.SphereGeometry(
+    buttonRadius,
+    32,
+    16,
+    (i * Math.PI) / (segments / 2),
+    Math.PI / (segments / 2),
+    0,
+    Math.PI
+  );
+
+  const buttonMaterial = new THREE.MeshPhongMaterial({
+    color: colors[i % colors.length],
+    specular: 0x111111,
+    shininess: 80,
+  });
+
+  const segmentMesh = new THREE.Mesh(segmentGeometry, buttonMaterial);
+  segmentMesh.castShadow = true;
+  buttonMesh.add(segmentMesh);
+}
+
 scene.add(buttonMesh);
 
-// Use a standard shadow approach with directional light
-// Ground plane for receiving shadows
-const planeGeometry = new THREE.PlaneGeometry(15, 15, 1, 1);
-const planeMaterial = new THREE.MeshStandardMaterial({
-  color: backgroundColor,
-  roughness: 0.8,
-  metalness: 0.2,
-});
-const ground = new THREE.Mesh(planeGeometry, planeMaterial);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -2.7;
-ground.receiveShadow = true;
-scene.add(ground);
+// Create a loader
+const loader = new GLTFLoader();
+
+// Load the GLTF model
+loader.load(
+  // Resource URL
+  "/beach/scene.gltf",
+
+  // Called when the resource is loaded
+  function (gltf) {
+    // Get the model from the loaded GLTF
+    const groundModel = gltf.scene;
+
+    // Apply transformations similar to your original ground plane
+    groundModel.position.y = -5.5; // Position at the same height as original ground
+    groundModel.position.z = -1;
+    groundModel.position.x = 1.5;
+
+    // Enable shadows for all meshes in the model
+    groundModel.traverse((node) => {
+      if (node.isMesh) {
+        node.receiveShadow = true;
+
+        // Optionally modify materials if needed
+        if (node.material) {
+          node.material.roughness = 0.8;
+          node.material.metalness = 0.2;
+        }
+      }
+    });
+
+    // Add the model to the scene
+    scene.add(groundModel);
+  }
+);
 
 // Directional light for overall illumination and shadow casting
 const directionalLight = new THREE.DirectionalLight(0xffffff, 4.856);
@@ -210,7 +249,7 @@ innerImageElement.style.display = "flex";
 innerImageElement.style.alignItems = "center";
 innerImageElement.style.justifyContent = "center";
 innerImageElement.style.overflow = "hidden";
-innerImageElement.style.pointerEvents = "none"; // Changed to auto to allow interaction with video controls
+innerImageElement.style.pointerEvents = "auto"; // Changed to auto to allow interaction with video controls
 
 imageContainer.appendChild(innerImageElement);
 
@@ -273,7 +312,7 @@ likesCounter.style.fontSize = "14px";
 likesCounter.style.fontWeight = "600";
 likesCounter.style.color = "#939393";
 likesCounter.style.padding = "0 0 8px 0";
-likesCounter.textContent = "1,234 likes";
+likesCounter.innerHTML = `<div style='padding-left: 10px;'><div>1,234 likes</div><div style='color:blue'>#Beach #Party</div></div>`;
 
 containerElement.appendChild(likesCounter);
 
@@ -305,7 +344,7 @@ htmlButton.style.display = "flex";
 htmlButton.style.alignItems = "center";
 htmlButton.style.justifyContent = "center";
 htmlButton.style.position = "relative";
-htmlButton.innerHTML = `<p>Add</p>`;
+htmlButton.innerHTML = `<p></p>`;
 htmlButton.style.border = "0px solid transparent";
 
 buttonElement.appendChild(htmlButton);
@@ -1309,6 +1348,9 @@ function animate() {
   buttonCSS3D.position.copy(buttonMesh.position);
   // Keep a small offset to ensure the HTML button appears above the mesh
   buttonCSS3D.position.z += 0.01;
+
+  buttonMesh.rotation.x += 0.03;
+  buttonMesh.rotation.y += 0.03;
 
   // Render both renderers
   renderer.render(scene, camera);
